@@ -5,7 +5,6 @@ mit ?zugang=<Passwort> (z. B. als QR-Code) meldet direkt an; der Code verschwind
 """
 from __future__ import annotations
 
-import datetime as dt
 import hmac
 import html
 import os
@@ -24,7 +23,6 @@ MODELL = "glm-flash"  # GLM-5.3 Flash; die Antwort entsteht immer mit maximalem 
 REPO = "https://github.com/AKUSH99/fhnw-studienassistent"
 BEISPIELE = ["Was ist diese Woche fällig?", "Wie wird die Gruppenarbeit in GenAI bewertet?",
              "Wie viele Folien darf das Pitch Deck in Entrepreneurship haben?", "Wann ist die Marketing-Präsentation?"]
-WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
 st.set_page_config(page_title="FHNW Studienassistent", page_icon="🎓")
 
@@ -66,41 +64,39 @@ def schlange() -> Warteschlange:
     return Warteschlange()  # eine für alle Sitzungen der App
 
 
-graph, suche, fristen = agent(MODELL)
+graph, suche, _ = agent(MODELL)
 st.session_state.setdefault("besucher", str(uuid.uuid4()))  # zählt offene Seiten, bleibt bei «Neues Gespräch»
 st.session_state.setdefault("thread", str(uuid.uuid4()))
 st.session_state.setdefault("verlauf", [])
 
 
-def datum_kurz(iso: str) -> str:
-    try:
-        d = dt.date.fromisoformat(iso[:10])
-    except ValueError:
-        return iso
-    return f"{WOCHENTAGE[d.weekday()]} {d:%d.%m.}"
-
-
-def zeige_stellen(quellen: list[str], antwort: str, frage: str) -> None:
-    """Gefundene Stellen als Karten: Modul, Datei und Seite, «zitiert», Suchbegriffe fett; Fristen als Liste."""
-    stellen, termine = zerlegen(quellen, antwort)
-    if not stellen and not termine:
+def zeige_details(eintrag: dict) -> None:
+    """Alles Zusätzliche zu einer Antwort in EINEM zugeklappten Feld: Quellen, Gedanken, Ablauf."""
+    stellen, termine = zerlegen(eintrag.get("quellen", []), eintrag["text"])
+    gedanken = eintrag.get("gedanken", "").strip()
+    if not (stellen or termine or gedanken):
         return
-    zitiert = sum(s.zitiert for s in stellen)
-    teile = [f"{len(stellen)} Stellen" if stellen else "", f"{len(termine)} Termine" if termine else ""]
-    titel = "📄 Gefundene Stellen · " + " · ".join(x for x in teile if x) + (f" · {zitiert} zitiert" if zitiert else "")
-    begriffe = suchbegriffe(frage)
-    with st.expander(titel):
-        if termine:
-            st.markdown("**📅 Termine**")
-            st.markdown("\n".join(f"- **{f.datum}**{' ' + f.zeit if f.zeit else ''} · :{farbe(f.modul)}-badge[{f.modul}] "
-                                   f"{als_markdown(f.titel, [])}" for f in termine))
-        for s in stellen:
-            with st.container(border=True):
-                kopf = f":{farbe(s.modul)}-badge[{s.modul}] **{als_markdown(s.datei, [])}**"
-                kopf += f" · S. {s.seite}" if s.seite else ""
-                kopf += " :green-badge[:material/check: in der Antwort zitiert]" if s.zitiert else ""
-                st.markdown(kopf)
-                st.markdown(f"<small>{als_markdown(s.text, begriffe)}</small>", unsafe_allow_html=True)
+    teile = [f"{len(stellen)} Quellen" if stellen else "", f"{len(termine)} Termine" if termine else "",
+             f"{eintrag['sekunden']:.0f} s" if eintrag.get("sekunden") else ""]
+    with st.expander("Details · " + " · ".join(x for x in teile if x)):
+        if eintrag.get("ablauf"):
+            st.caption(eintrag["ablauf"])
+        reiter = [n for n, da in (("Quellen", stellen or termine), ("Gedanken", gedanken)) if da]
+        for name, bereich in zip(reiter, st.tabs(reiter)):
+            with bereich:
+                if name == "Gedanken":
+                    st.markdown(gedanken_html(gedanken), unsafe_allow_html=True)
+                    continue
+                for f in termine:
+                    st.markdown(f"**{f.datum}**{' ' + f.zeit if f.zeit else ''} · {f.modul}: {als_markdown(f.titel, [])}")
+                begriffe = suchbegriffe(eintrag.get("frage", ""))
+                for s in stellen:
+                    with st.container(border=True):
+                        kopf = f":{farbe(s.modul)}-badge[{s.modul}] **{als_markdown(s.datei, [])}**"
+                        kopf += f" · S. {s.seite}" if s.seite else ""
+                        kopf += " · :green[zitiert]" if s.zitiert else ""
+                        st.markdown(kopf)
+                        st.markdown(f"<small>{als_markdown(s.text, begriffe)}</small>", unsafe_allow_html=True)
 
 
 def gedanken_html(text: str, nur_ende: int | None = None) -> str:
@@ -111,16 +107,8 @@ def gedanken_html(text: str, nur_ende: int | None = None) -> str:
             f"{html.escape(text.strip())}</div>")
 
 
-def zeige_gedanken(gedanken: str) -> None:
-    if gedanken.strip():
-        with st.expander("🧠 Gedanken anzeigen"):
-            st.markdown(gedanken_html(gedanken), unsafe_allow_html=True)
-
-
-def zeige_antwort_fuss(eintrag: dict) -> None:
-    """Ablauf in einer Zeile und 👍/👎 (wird gezählt, ohne den Text zu speichern)."""
-    if eintrag.get("ablauf"):
-        st.caption(eintrag["ablauf"])
+def zeige_bewertung(eintrag: dict) -> None:
+    """👍/👎 (gezählt, ohne den Text zu speichern)."""
     schluessel = f"daumen_{eintrag['id']}"
 
     def gespeichert() -> None:
@@ -130,77 +118,53 @@ def zeige_antwort_fuss(eintrag: dict) -> None:
     st.feedback("thumbs", key=schluessel, on_change=gespeichert)
 
 
+def zeige_antwort(eintrag: dict) -> None:
+    zeige_details(eintrag)
+    zeige_bewertung(eintrag)
+
+
 @st.fragment(run_every=10)
 def auslastung() -> None:
-    """Lebenszeichen senden und die Lage anzeigen; aktualisiert sich alle 10 Sekunden von selbst."""
+    """Lebenszeichen senden und die Lage kurz anzeigen; aktualisiert sich alle 10 Sekunden von selbst."""
     b = betrieb()
     b.lebenszeichen(st.session_state["besucher"])
     lage, (in_arbeit, wartend) = b.lage(), schlange().zustand()
-    zahl = lambda n, eins, mehr: f"{n} {eins if n == 1 else mehr}"
-    st.markdown("**Gerade los**")
-    st.markdown(f"👥 {zahl(lage['aktiv'], 'Person', 'Personen')} online  \n"
-                f"💬 {zahl(in_arbeit, 'Frage', 'Fragen')} in Arbeit"
-                + (f", {wartend} in der Warteschlange" if wartend else ""))
+    st.caption(f"👥 {lage['aktiv']} online · 🔑 {lage['aufrufe_minute']}/{lage['limit']} Aufrufe pro Minute")
+    if wartend:
+        st.caption(f"⏳ {wartend} in der Warteschlange")
     if lage["pause_noch"] > 0:
-        st.warning(f"Die Plattform hat kurz gebremst, Fragen warten noch {lage['pause_noch']:.0f} s.", icon="⏸️")
-    st.progress(min(lage["aufrufe_minute"] / lage["limit"], 1.0),
-                text=f"🔑 API-Schlüssel: {lage['aufrufe_minute']} von {lage['limit']} Aufrufen pro Minute")
-    schnitt = f", Ø {lage['schnitt_sekunden']:.0f} s pro Antwort" if lage["schnitt_sekunden"] else ""
-    st.caption(f"Heute: {zahl(lage['fragen_heute'], 'Frage', 'Fragen')} von "
-               f"{zahl(lage['fragende_heute'], 'Person', 'Personen')}{schnitt}  \n"
-               f"Bewertungen: 👍 {lage['daumen_hoch']} · 👎 {lage['daumen_runter']}")
+        st.caption(f"⏸️ Die Plattform bremst, noch {lage['pause_noch']:.0f} s")
+    with st.expander("Statistik"):
+        schnitt = f" · Ø {lage['schnitt_sekunden']:.0f} s" if lage["schnitt_sekunden"] else ""
+        st.caption(f"Heute {lage['fragen_heute']} Fragen von {lage['fragende_heute']} Personen{schnitt}  \n"
+                   f"Bewertungen 👍 {lage['daumen_hoch']} · 👎 {lage['daumen_runter']}")
+
+
+def beispiel_gewaehlt() -> None:
+    st.session_state["vorschlag"] = st.session_state["beispiel"]
+    st.session_state["beispiel"] = None
 
 
 with st.sidebar:
-    st.markdown("### 🎓 Studienassistent")
-    st.caption("Modell: GLM-5.3 Flash (Swiss AI Research Platform)  \n🧠 Reasoning: immer maximal")
     if st.button("Neues Gespräch", icon=":material/add_comment:", width="stretch"):
         st.session_state.pop("thread", None)
         st.session_state.pop("verlauf", None)
         st.rerun()
-    st.divider()
     auslastung()
-    st.divider()
-    st.caption(f"Gruppenarbeit im Modul Generative KI & Agentensysteme, FHNW BAI HS 2026 · [Code auf GitHub]({REPO})  \n"
+    st.caption(f"GLM-5.3 Flash · Swiss AI Research Platform · [GitHub]({REPO})  \n"
                "Antworten können Fehler enthalten. Verbindlich sind Moodle und die Dozierenden.")
 
-st.title("🎓 FHNW Studienassistent")
-st.caption("Fragen zu Prüfungen, Abgaben, Fristen und Inhalten im BAI-Herbstsemester 2026 – jede Antwort mit Quelle.")
-st.markdown("**Eingerichtet für diese Module:** " + " ".join(f":{farbe(m)}-badge[{m}]" for m in suche.module()))
-
+st.title("🎓 Studienassistent")
 if not st.session_state["verlauf"] and "vorschlag" not in st.session_state and not st.session_state.get("eingabe"):
-    # Startseite: wie es funktioniert, was bald ansteht, Beispiele zum Anklicken
-    spalten = st.columns(3)
-    for spalte, (symbol, titel, text) in zip(spalten, [
-            ("🔎", "Sucht", "in Folien, Semesterprogrammen, Moodle- und Teams-Texten deiner Module"),
-            ("🧠", "Denkt nach", "und beantwortet nur, was in den Unterlagen steht"),
-            ("📄", "Belegt", "jede Aussage mit Modul, Datei und Seite")]):
-        with spalte.container(border=True):
-            st.markdown(f"#### {symbol} {titel}")
-            st.caption(text)
-    heute = dt.date.today()
-    bald = fristen.suchen(heute.isoformat(), (heute + dt.timedelta(days=14)).isoformat())
-    if bald:
-        st.markdown("##### 📅 Die nächsten zwei Wochen")
-        with st.container(border=True):
-            for e in bald[:6]:
-                zeit = f" {e['time']}" if e.get("time") else ""
-                st.markdown(f"**{datum_kurz(str(e.get('sort') or e.get('date') or ''))}**{zeit} · "
-                            f":{farbe(str(e.get('module', '')))}-badge[{e.get('module', '?')}] {als_markdown(str(e.get('title', '')), [])}")
-    st.markdown("##### 💡 Probier zum Beispiel")
-    for spalte, beispiel in zip(st.columns(2) * 2, BEISPIELE):
-        if spalte.button(beispiel, width="stretch"):
-            st.session_state["vorschlag"] = beispiel
-            st.rerun()  # Startseite ausblenden, die Frage läuft im nächsten Durchgang
+    st.caption("Fragen zu Prüfungen, Abgaben und Fristen im BAI-Herbstsemester 2026, jede Antwort mit Quelle.  \n"
+               "Module: " + " · ".join(suche.module()))
+    st.pills("Beispiele", BEISPIELE, key="beispiel", on_change=beispiel_gewaehlt, label_visibility="collapsed")
 
 for eintrag in st.session_state["verlauf"]:
     with st.chat_message(eintrag["rolle"]):
         st.markdown(eintrag["text"])
         if eintrag["rolle"] == "assistant":
-            zeige_gedanken(eintrag.get("gedanken", ""))
-            if eintrag.get("quellen"):
-                zeige_stellen(eintrag["quellen"], eintrag["text"], eintrag.get("frage", ""))
-            zeige_antwort_fuss(eintrag)
+            zeige_antwort(eintrag)
 
 frage = st.chat_input("Deine Frage zum Studium …", key="eingabe") or st.session_state.pop("vorschlag", None)
 if frage:
@@ -247,14 +211,12 @@ if frage:
         status.empty()
         denkfeld.empty()
         feld.markdown(r["antwort"])
-        zeige_gedanken(gedanken)
-        zeige_stellen(r["quellen"], r["antwort"], frage)
         n_suche = sum(1 for s in suchen if s == "unterlagen_durchsuchen")
         schritte = ["🛡️ abgelehnt" if r.get("abgelehnt") else "🛡️ geprüft"]
         schritte += [f"🔎 {n_suche} {'Suche' if n_suche == 1 else 'Suchen'}"] if n_suche else []
         schritte += ["📅 Fristen"] if "fristen_anzeigen" in suchen else []
         schritte += [] if r.get("abgelehnt") else ["🧠 Antwort mit Reasoning"]
         eintrag = {"rolle": "assistant", "text": r["antwort"], "quellen": r["quellen"], "frage": frage, "id": str(uuid.uuid4()),
-                   "gedanken": gedanken, "ablauf": " → ".join(schritte) + f" · ⏱ {time.time() - start:.0f} s"}
-        zeige_antwort_fuss(eintrag)
+                   "gedanken": gedanken, "ablauf": " → ".join(schritte), "sekunden": time.time() - start}
+        zeige_antwort(eintrag)
     st.session_state["verlauf"].append(eintrag)
