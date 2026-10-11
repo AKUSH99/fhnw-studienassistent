@@ -66,10 +66,29 @@ def http_client(zeitlimit: float, transport=None):
     return httpx.Client(timeout=zeitlimit, transport=transport, event_hooks={"request": [vorher], "response": [nachher]})
 
 
+def _mit_gedanken_klasse():
+    """ChatOpenAI, das die Gedanken des Modells (Feld reasoning_content der Plattform) beim Streaming mitliefert.
+    LangChain verwirft das Feld sonst; die Plattform schickt die Gedanken ab der ersten Sekunde, den Text erst danach."""
+    from langchain_core.messages import AIMessageChunk
+    from langchain_openai import ChatOpenAI
+
+    class ChatMitGedanken(ChatOpenAI):
+        def _convert_chunk_to_generation_chunk(self, chunk, default_chunk_class, base_generation_info):
+            stueck = super()._convert_chunk_to_generation_chunk(chunk, default_chunk_class, base_generation_info)
+            wahl = (chunk.get("choices") or [{}])[0] or {}
+            gedanke = (wahl.get("delta") or {}).get("reasoning_content")
+            if stueck is not None and gedanke and isinstance(stueck.message, AIMessageChunk):
+                stueck.message.additional_kwargs["reasoning_content"] = gedanke
+            return stueck
+
+    return ChatMitGedanken
+
+
 def chat_modell(name: str = "deepseek", denken: bool = False):
     """LangChain-Chatmodell auf der Swiss AI Platform (OpenAI-kompatibel), mit Taktbremse fürs Ratenlimit."""
     from langchain_openai import ChatOpenAI
-    return ChatOpenAI(
+    klasse = _mit_gedanken_klasse() if denken else ChatOpenAI
+    return klasse(
         model=MODELLE.get(name, name),
         base_url=SWISSAI_URL,
         api_key=os.environ.get("SWISSAI_API_KEY", "fehlt"),

@@ -281,3 +281,26 @@ def test_qr_link_meldet_direkt_an(monkeypatch, tmp_path):
     falsch.query_params["zugang"] = "falsch"
     falsch.run()
     assert falsch.text_input[0].label == "Passwort" and not falsch.chat_input
+
+
+def test_nach_der_suche_direkt_zur_antwort_mit_gedanken():
+    from studienassistent.agent import fragen_live
+    schnell = FakeModell(antworten=[_suche(1)], gesehen=[])
+    denker = FakeModell(antworten=[AIMessage("Am 23.11.", additional_kwargs={"reasoning_content": "Ich prüfe die Treffer …"})],
+                        gesehen=[])
+    graph = baue_agent(schnell, Suche(einlesen([DATEN])), Fristen([]), denkmodell=denker)
+    ereignisse = list(fragen_live(graph, "Wann ist die GenAI-Präsentation?", "direkt"))
+    assert len(schnell.gesehen) == 1  # das schnelle Modell nur einmal: kein zweiter Entwurf nach der Suche
+    assert ("gedanke", "Ich prüfe die Treffer …") in ereignisse
+    assert any(m.type == "tool" for m in denker.gesehen[0])  # das Denkmodell sieht die Suchtreffer
+    assert ereignisse[-1][1]["antwort"] == "Am 23.11."
+
+
+def test_gedanken_der_plattform_kommen_durch():
+    from studienassistent.konfig import _mit_gedanken_klasse
+    from langchain_core.messages import AIMessageChunk
+    modell = _mit_gedanken_klasse()(model="m", api_key="x", base_url="http://x")
+    stueck = modell._convert_chunk_to_generation_chunk(
+        {"choices": [{"index": 0, "delta": {"role": "assistant", "content": "", "reasoning_content": "Hm, Montag …"}}]},
+        AIMessageChunk, {})
+    assert stueck.message.additional_kwargs["reasoning_content"] == "Hm, Montag …"
