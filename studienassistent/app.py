@@ -168,7 +168,7 @@ st.title("🎓 FHNW Studienassistent")
 st.caption("Fragen zu Prüfungen, Abgaben, Fristen und Inhalten im BAI-Herbstsemester 2026 – jede Antwort mit Quelle.")
 st.markdown("**Eingerichtet für diese Module:** " + " ".join(f":{farbe(m)}-badge[{m}]" for m in suche.module()))
 
-if not st.session_state["verlauf"] and "vorschlag" not in st.session_state:
+if not st.session_state["verlauf"] and "vorschlag" not in st.session_state and not st.session_state.get("eingabe"):
     # Startseite: wie es funktioniert, was bald ansteht, Beispiele zum Anklicken
     spalten = st.columns(3)
     for spalte, (symbol, titel, text) in zip(spalten, [
@@ -202,7 +202,7 @@ for eintrag in st.session_state["verlauf"]:
                 zeige_stellen(eintrag["quellen"], eintrag["text"], eintrag.get("frage", ""))
             zeige_antwort_fuss(eintrag)
 
-frage = st.chat_input("Deine Frage zum Studium …") or st.session_state.pop("vorschlag", None)
+frage = st.chat_input("Deine Frage zum Studium …", key="eingabe") or st.session_state.pop("vorschlag", None)
 if frage:
     st.session_state["verlauf"].append({"rolle": "user", "text": frage})
     with st.chat_message("user"):
