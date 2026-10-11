@@ -81,10 +81,13 @@ def baue_agent(modell, suche: Suche, fristen: Fristen, heute: dt.date | None = N
         return {"messages": [mit_werkzeugen.invoke([system()] + zustand["messages"])]}
 
     def antworten(zustand: Zustand) -> dict:
-        # Der Entwurf des schnellen Modells wird ersetzt: Das Denkmodell sieht Frage und Treffer, aber nicht den Entwurf.
-        entwurf = zustand["messages"][-1]
-        antwort = denkmodell.invoke([system()] + zustand["messages"][:-1] + [SystemMessage(prompts.JETZT_ANTWORTEN)])
-        return {"messages": [RemoveMessage(id=entwurf.id), antwort]}
+        # Kommt es direkt von der Suche, ist die letzte Nachricht das Suchergebnis und bleibt. Hat das schnelle Modell
+        # ohne Suche geantwortet, ist die letzte Nachricht sein Entwurf: Den sieht das Denkmodell nicht, er wird ersetzt.
+        letzte = zustand["messages"][-1]
+        ist_entwurf = isinstance(letzte, AIMessage) and not getattr(letzte, "tool_calls", None)
+        verlauf = zustand["messages"][:-1] if ist_entwurf else zustand["messages"]
+        antwort = denkmodell.invoke([system()] + verlauf + [SystemMessage(prompts.JETZT_ANTWORTEN)])
+        return {"messages": ([RemoveMessage(id=letzte.id)] if ist_entwurf else []) + [antwort]}
 
     def nach_agent(zustand: Zustand) -> str:
         if tools_condition(zustand) == "tools":
@@ -103,7 +106,9 @@ def baue_agent(modell, suche: Suche, fristen: Fristen, heute: dt.date | None = N
         g.add_edge("antworten", END)
         ziele.append("antworten")
     g.add_conditional_edges("agent", nach_agent, ziele)
-    g.add_edge("werkzeuge", "agent")
+    # Mit Denkmodell nach der Suche direkt zur Antwort: Eine zweite Runde des schnellen Modells würde nur einen
+    # Entwurf schreiben, der verworfen wird (4 bis 9 s). Mehrere Suchen gehen trotzdem, parallel im selben Schritt.
+    g.add_edge("werkzeuge", "antworten" if denkmodell is not None else "agent")
     return g.compile(checkpointer=gedaechtnis or MemorySaver())
 
 
@@ -144,21 +149,25 @@ def fragen(graph, text: str, thread_id: str = "standard") -> dict:
 def fragen_live(graph, text: str, thread_id: str = "standard"):
     """Wie fragen(), aber als Generator für die Chat-Oberfläche: liefert ("text", Stück) während die Antwort entsteht,
     ("werkzeug", Name) wenn der Agent sucht, ("denken", None) wenn das Denkmodell die Antwort schreibt (der bisherige
-    Text war dann nur ein Entwurf), und zum Schluss ("fertig", Ergebnis wie bei fragen())."""
+    Text war dann nur ein Entwurf), ("gedanke", Stück) für dessen Gedanken, und zum Schluss ("fertig", Ergebnis wie bei
+    fragen())."""
     konfig = _konfig(thread_id)
     vorher = len(graph.get_state(konfig).values.get("messages", []))
     mit_denkmodell = "antworten" in graph.nodes
     try:
         for modus, daten in graph.stream({"messages": [("user", text)]}, config=konfig, stream_mode=["updates", "messages"]):
             if modus == "updates":
-                # Agent ist fertig mit Suchen: Jetzt schreibt das Denkmodell, der gestreamte Entwurf ist hinfällig.
+                # Suche fertig bzw. Agent braucht keine: Jetzt schreibt das Denkmodell die Antwort.
                 letzte = ((daten.get("agent") or {}).get("messages") or [None])[-1]
-                if mit_denkmodell and letzte is not None and not getattr(letzte, "tool_calls", None):
+                if mit_denkmodell and ("werkzeuge" in daten or (letzte is not None and not getattr(letzte, "tool_calls", None))):
                     yield "denken", None
                 continue
             stueck, meta = daten
             if meta.get("langgraph_node") not in ("agent", "antworten"):
                 continue
+            gedanke = (getattr(stueck, "additional_kwargs", None) or {}).get("reasoning_content")
+            if gedanke and meta["langgraph_node"] == "antworten":
+                yield "gedanke", gedanke
             for aufruf in getattr(stueck, "tool_call_chunks", None) or getattr(stueck, "tool_calls", None) or []:
                 if aufruf.get("name"):
                     yield "werkzeug", aufruf["name"]

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hmac
+import html
 import os
 import time
 import uuid
@@ -102,6 +103,20 @@ def zeige_stellen(quellen: list[str], antwort: str, frage: str) -> None:
                 st.markdown(f"<small>{als_markdown(s.text, begriffe)}</small>", unsafe_allow_html=True)
 
 
+def gedanken_html(text: str, nur_ende: int | None = None) -> str:
+    """Gedanken des Modells klein und grau; live nur das Ende, damit es wie ein Ticker mitläuft."""
+    if nur_ende and len(text) > nur_ende:
+        text = "… " + text[-nur_ende:]
+    return ("<div style='font-size:0.85em;font-style:italic;opacity:0.65;white-space:pre-wrap'>"
+            f"{html.escape(text.strip())}</div>")
+
+
+def zeige_gedanken(gedanken: str) -> None:
+    if gedanken.strip():
+        with st.expander("🧠 Gedanken anzeigen"):
+            st.markdown(gedanken_html(gedanken), unsafe_allow_html=True)
+
+
 def zeige_antwort_fuss(eintrag: dict) -> None:
     """Ablauf in einer Zeile und 👍/👎 (wird gezählt, ohne den Text zu speichern)."""
     if eintrag.get("ablauf"):
@@ -182,6 +197,7 @@ for eintrag in st.session_state["verlauf"]:
     with st.chat_message(eintrag["rolle"]):
         st.markdown(eintrag["text"])
         if eintrag["rolle"] == "assistant":
+            zeige_gedanken(eintrag.get("gedanken", ""))
             if eintrag.get("quellen"):
                 zeige_stellen(eintrag["quellen"], eintrag["text"], eintrag.get("frage", ""))
             zeige_antwort_fuss(eintrag)
@@ -192,7 +208,7 @@ if frage:
     with st.chat_message("user"):
         st.markdown(frage)
     with st.chat_message("assistant"):
-        status, feld, text = st.empty(), st.empty(), ""
+        status, denkfeld, feld, text, gedanken = st.empty(), st.empty(), st.empty(), "", ""
         hinweise = {"unterlagen_durchsuchen": "🔎 Durchsuche die Unterlagen …", "fristen_anzeigen": "📅 Schaue in die Fristen …",
                     "module_auflisten": "📚 Liste die Module …"}
         nummer, start, suchen = schlange().anstellen(), time.time(), []
@@ -211,8 +227,13 @@ if frage:
                     status.caption("🧠 Denke über die Antwort nach …")
                     text = ""
                     feld.empty()
+                elif art == "gedanke":  # sofort sichtbar: das Modell denkt laut, bevor der Text kommt
+                    gedanken += inhalt
+                    status.caption("🧠 Denke nach …")
+                    denkfeld.markdown(gedanken_html(gedanken, nur_ende=500), unsafe_allow_html=True)
                 elif art == "text":
                     status.empty()
+                    denkfeld.empty()
                     text += inhalt
                     feld.markdown(text + " ▌")
                 else:
@@ -224,7 +245,9 @@ if frage:
             schlange().fertig(nummer)
         betrieb().frage_erledigt(st.session_state["besucher"], start)
         status.empty()
+        denkfeld.empty()
         feld.markdown(r["antwort"])
+        zeige_gedanken(gedanken)
         zeige_stellen(r["quellen"], r["antwort"], frage)
         n_suche = sum(1 for s in suchen if s == "unterlagen_durchsuchen")
         schritte = ["🛡️ abgelehnt" if r.get("abgelehnt") else "🛡️ geprüft"]
@@ -232,6 +255,6 @@ if frage:
         schritte += ["📅 Fristen"] if "fristen_anzeigen" in suchen else []
         schritte += [] if r.get("abgelehnt") else ["🧠 Antwort mit Reasoning"]
         eintrag = {"rolle": "assistant", "text": r["antwort"], "quellen": r["quellen"], "frage": frage, "id": str(uuid.uuid4()),
-                   "ablauf": " → ".join(schritte) + f" · ⏱ {time.time() - start:.0f} s"}
+                   "gedanken": gedanken, "ablauf": " → ".join(schritte) + f" · ⏱ {time.time() - start:.0f} s"}
         zeige_antwort_fuss(eintrag)
     st.session_state["verlauf"].append(eintrag)
