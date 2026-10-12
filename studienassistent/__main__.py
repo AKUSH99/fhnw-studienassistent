@@ -22,12 +22,12 @@ def lade_alles(modell_name: str = "deepseek", denken: bool = False, mcp: bool = 
     from .einlesen import laden
     from .fristen import Fristen
     from .konfig import chat_modell
-    from .suche import Suche, swissai_einbetter
+    from .suche import Suche, einbetter
     d = daten_ordner()
     datei = d / "abschnitte.jsonl"
     if not datei.exists():
         raise SystemExit(f"Keine Unterlagen in {datei} – zuerst: python -m studienassistent einlesen <Ordner>")
-    suche = Suche(laden(datei), swissai_einbetter(d / "embeddings.json"))
+    suche = Suche(laden(datei), einbetter(d / "embeddings.json"))
     fristen = Fristen.laden(d / "fristen.json")
     # Mit Reasoning prüft und sucht das schnelle Modell; nur die Antwort schreibt das denkende (einmal statt pro Runde).
     denkmodell = chat_modell(modell_name, True) if denken else None
