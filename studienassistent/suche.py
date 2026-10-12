@@ -1,9 +1,8 @@
 """Suche in den Kursunterlagen: BM25 (exakte Begriffe wie «Pitch Deck», «KW 48») und, wenn verfügbar, Embeddings
 (Umschreibungen wie «Wann muss ich präsentieren?»), verbunden mit Reciprocal Rank Fusion. Optional nur in einem Modul.
 
-Embeddings kommen standardmässig von der Swiss AI Platform (Qwen3-Embedding-8B), mit STUDIENASSISTENT_EMBEDDINGS=lokal
-von EmbeddingGemma 2 auf einem lokalen llama.cpp-Server. Sie werden in <daten>/embeddings*.npz gespeichert, damit die
-Unterlagen nur einmal eingebettet werden. Ohne Schlüssel oder Netz bleibt es bei BM25.
+Embeddings kommen von der Swiss AI Platform (Qwen3-Embedding-8B) und werden in <daten>/embeddings.npz gespeichert,
+damit die Unterlagen nur einmal eingebettet werden. Ohne Schlüssel oder Netz bleibt es bei BM25.
 """
 from __future__ import annotations
 
@@ -62,45 +61,17 @@ class BM25:
         return out
 
 
-def einbetter(cache: Path):
-    """Embedding-Quelle nach STUDIENASSISTENT_EMBEDDINGS: «swissai» (Standard, Qwen3-Embedding-8B über die Swiss AI
-    Platform) oder «lokal» (EmbeddingGemma 2 über einen lokalen llama.cpp-Server, ohne Ratenlimit und ohne Schlüssel)."""
-    if os.environ.get("STUDIENASSISTENT_EMBEDDINGS", "swissai").lower() == "lokal":
-        return lokal_einbetter(cache.with_name("embeddings-embeddinggemma2.npz"))
-    return swissai_einbetter(cache)
-
-
-def lokal_einbetter(cache: Path, stapel: int = 16):
-    """EmbeddingGemma 2 (Google, 2026; Text-Teil, quantisiert) über einen OpenAI-kompatiblen Server, z. B.
-    `llama-server -m embeddinggemma-2-Q8_0.gguf --embeddings --port 8093`. Adresse: STUDIENASSISTENT_EMBEDDING_URL.
-    Das Modell erwartet Präfixe: Dokumente «title: … | text: …», Suchanfragen «task: search result | query: …»."""
-    import openai
-    client = openai.OpenAI(base_url=os.environ.get("STUDIENASSISTENT_EMBEDDING_URL", "http://127.0.0.1:8093/v1"),
-                           api_key="lokal", max_retries=3, timeout=600)
-    einbetten = _mit_cache(cache, "embeddinggemma-2", lambda teil: client.embeddings.create(model="embeddinggemma-2", input=teil),
-                           stapel)
-    einbetten.dokument_vorlage = "title: {modul} · {datei} | text: {text}"
-    einbetten.anfrage_vorlage = "task: search result | query: {anfrage}"
-    return einbetten
-
-
 def swissai_einbetter(cache: Path, stapel: int = 32):
     """Embeddings über die Swiss AI Platform; Ergebnis als normierte NumPy-Matrix (float32), Cache als float16-npz.
     Der Cache wird laufend gespeichert, ein abgebrochener Lauf macht beim nächsten Mal weiter. None ohne Schlüssel."""
     if not os.environ.get("SWISSAI_API_KEY"):
         return None
+    import numpy as np
     import openai
 
     from .konfig import EMBEDDING_MODELL, SWISSAI_URL, http_client
     client = openai.OpenAI(base_url=SWISSAI_URL, api_key=os.environ["SWISSAI_API_KEY"], max_retries=6,
                            http_client=http_client(60))  # Taktbremse und Notbremse wie beim Chat
-    return _mit_cache(cache, EMBEDDING_MODELL, lambda teil: client.embeddings.create(model=EMBEDDING_MODELL, input=teil), stapel)
-
-
-def _mit_cache(cache: Path, modell: str, anfragen, stapel: int):
-    """Gemeinsamer Teil beider Einbetter: Cache (float16-npz, laufend gesichert), Stapel, Normierung."""
-    import numpy as np
-    EMBEDDING_MODELL = modell
     cache = cache.with_suffix(".npz")
     gespeichert: dict[str, np.ndarray] = {}
     if cache.exists():
@@ -120,7 +91,7 @@ def _mit_cache(cache: Path, modell: str, anfragen, stapel: int):
         fehlend = [t for t in dict.fromkeys(texte) if schluessel(t) not in gespeichert]
         for nr, start in enumerate(range(0, len(fehlend), stapel), 1):
             teil = fehlend[start:start + stapel]
-            antwort = anfragen(teil)
+            antwort = client.embeddings.create(model=EMBEDDING_MODELL, input=teil)
             for t, d in zip(teil, sorted(antwort.data, key=lambda d: d.index)):
                 neu[schluessel(t)] = np.asarray(d.embedding, dtype=np.float16)
             if merken:
@@ -142,11 +113,7 @@ class Suche:
         self.abschnitte = abschnitte
         self.bm25 = BM25(abschnitte)
         self.einbetten, self.rrf_k = einbetten, rrf_k
-        # Manche Modelle brauchen Präfixe für Dokumente und Anfragen (z. B. EmbeddingGemma); der Einbetter gibt sie vor
-        self.dokument_vorlage = getattr(einbetten, "dokument_vorlage", "{modul}: {text}")
-        self.anfrage_vorlage = getattr(einbetten, "anfrage_vorlage", "{anfrage}")
-        self.vektoren = einbetten([self.dokument_vorlage.format(modul=a.modul, datei=Path(a.datei).name, text=a.text)
-                                   for a in abschnitte]) if einbetten else None
+        self.vektoren = einbetten([f"{a.modul}: {a.text}" for a in abschnitte]) if einbetten else None
 
     def module(self) -> list[str]:
         return sorted({a.modul for a in self.abschnitte})
@@ -158,7 +125,7 @@ class Suche:
         b = self.bm25.werte(anfrage)
         listen = [sorted((i for i in erlaubt if b[i] > 0), key=lambda i: -b[i])[:30]]
         if self.vektoren is not None:
-            sim = self.vektoren[erlaubt] @ self.einbetten([self.anfrage_vorlage.format(anfrage=anfrage)], merken=False)[0]
+            sim = self.vektoren[erlaubt] @ self.einbetten([anfrage], merken=False)[0]
             listen.append([erlaubt[j] for j in sim.argsort()[::-1][:30]])
         rrf: dict[int, float] = {}
         for liste in listen:
