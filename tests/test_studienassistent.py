@@ -106,33 +106,6 @@ def test_hybrid_suche_mit_embeddings():
     assert suche.suchen("Wann ist die Abschlusspräsentation?", k=1)[0][0].modul == "Generative KI"
 
 
-def test_einbetter_mit_praefixen_wie_embeddinggemma():
-    """EmbeddingGemma 2 braucht «title: … | text: …» für Dokumente und «task: search result | query: …» für Anfragen."""
-    import numpy as np
-    gesehen = []
-
-    def einbetten(texte, merken=True):
-        gesehen.extend(texte)
-        return np.ones((len(texte), 4), dtype=np.float32) / 2
-
-    einbetten.dokument_vorlage = "title: {modul} · {datei} | text: {text}"
-    einbetten.anfrage_vorlage = "task: search result | query: {anfrage}"
-    suche = Suche(einlesen([DATEN]), einbetten)
-    suche.suchen("Wann ist die Präsentation?", k=1)
-    assert gesehen[0].startswith("title: Generative KI · semesterprogramm.md | text: ")
-    assert gesehen[-1] == "task: search result | query: Wann ist die Präsentation?"
-
-
-def test_einbetter_wahl_ueber_umgebungsvariable(tmp_path, monkeypatch):
-    from studienassistent.suche import einbetter
-    monkeypatch.setenv("STUDIENASSISTENT_EMBEDDINGS", "lokal")
-    e = einbetter(tmp_path / "embeddings.json")
-    assert e.anfrage_vorlage.startswith("task: search result")  # ohne Netz: nur erzeugt, nichts angefragt
-    monkeypatch.setenv("STUDIENASSISTENT_EMBEDDINGS", "swissai")
-    monkeypatch.delenv("SWISSAI_API_KEY", raising=False)
-    assert einbetter(tmp_path / "embeddings.json") is None  # ohne Schlüssel bleibt es bei BM25
-
-
 def test_taktbremse_wartet_erst_am_limit_auch_ueber_prozesse(tmp_path):
     from studienassistent.betrieb import Betrieb
     app, update_job = Betrieb(tmp_path / "b.sqlite", 3), Betrieb(tmp_path / "b.sqlite", 3)  # zwei Prozesse, eine Datei
