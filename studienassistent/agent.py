@@ -149,13 +149,17 @@ def fragen(graph, text: str, thread_id: str = "standard") -> dict:
 def fragen_live(graph, text: str, thread_id: str = "standard"):
     """Wie fragen(), aber als Generator für die Chat-Oberfläche: liefert ("text", Stück) während die Antwort entsteht,
     ("werkzeug", Name) wenn der Agent sucht, ("denken", None) wenn das Denkmodell die Antwort schreibt (der bisherige
-    Text war dann nur ein Entwurf), ("gedanke", Stück) für dessen Gedanken, und zum Schluss ("fertig", Ergebnis wie bei
-    fragen())."""
+    Text war dann nur ein Entwurf), ("gedanke", Stück) für dessen Gedanken, ("schritt", Knoten) und ("schritt_fertig",
+    Knoten) wenn ein Knoten des Graphen startet bzw. fertig ist (für das Live-Diagramm, siehe ablauf.py), und zum Schluss
+    ("fertig", Ergebnis wie bei fragen())."""
     konfig = _konfig(thread_id)
     vorher = len(graph.get_state(konfig).values.get("messages", []))
     mit_denkmodell = "antworten" in graph.nodes
     try:
-        for modus, daten in graph.stream({"messages": [("user", text)]}, config=konfig, stream_mode=["updates", "messages"]):
+        for modus, daten in graph.stream({"messages": [("user", text)]}, config=konfig, stream_mode=["tasks", "updates", "messages"]):
+            if modus == "tasks":  # Start ohne «result», Ende mit «result»
+                yield ("schritt_fertig" if "result" in daten else "schritt"), daten["name"]
+                continue
             if modus == "updates":
                 # Suche fertig bzw. Agent braucht keine: Jetzt schreibt das Denkmodell die Antwort.
                 letzte = ((daten.get("agent") or {}).get("messages") or [None])[-1]
