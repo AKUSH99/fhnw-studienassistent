@@ -14,6 +14,7 @@ import uuid
 import streamlit as st
 
 from studienassistent.__main__ import lade_alles
+from studienassistent.ablauf import Schritte, dot
 from studienassistent.agent import fragen_live
 from studienassistent.betrieb import Warteschlange
 from studienassistent.konfig import betrieb
@@ -74,16 +75,22 @@ def zeige_details(eintrag: dict) -> None:
     """Alles Zusätzliche zu einer Antwort in EINEM zugeklappten Feld: Quellen, Gedanken, Ablauf."""
     stellen, termine = zerlegen(eintrag.get("quellen", []), eintrag["text"])
     gedanken = eintrag.get("gedanken", "").strip()
-    if not (stellen or termine or gedanken):
+    if not (stellen or termine or gedanken or eintrag.get("graph")):
         return
     teile = [f"{len(stellen)} Quellen" if stellen else "", f"{len(termine)} Termine" if termine else "",
              f"{eintrag['sekunden']:.0f} s" if eintrag.get("sekunden") else ""]
     with st.expander("Details · " + " · ".join(x for x in teile if x)):
         if eintrag.get("ablauf"):
             st.caption(eintrag["ablauf"])
-        reiter = [n for n, da in (("Quellen", stellen or termine), ("Gedanken", gedanken)) if da]
+        reiter = [n for n, da in (("Quellen", stellen or termine), ("Gedanken", gedanken), ("Ablauf", eintrag.get("graph")))
+                  if da]
         for name, bereich in zip(reiter, st.tabs(reiter)):
             with bereich:
+                if name == "Ablauf":
+                    st.graphviz_chart(eintrag["graph"])
+                    st.caption("Die Schritte dieser Antwort im LangGraph-Graphen (grün = durchlaufen, gestrichelt = Entscheidung).  \n"
+                               + eintrag.get("schritte", ""))
+                    continue
                 if name == "Gedanken":
                     st.markdown(gedanken_html(gedanken), unsafe_allow_html=True)
                     continue
@@ -172,7 +179,8 @@ if frage:
     with st.chat_message("user"):
         st.markdown(frage)
     with st.chat_message("assistant"):
-        status, denkfeld, feld, text, gedanken = st.empty(), st.empty(), st.empty(), "", ""
+        graphfeld, status, denkfeld, feld, text, gedanken = st.empty(), st.empty(), st.empty(), st.empty(), "", ""
+        schritte = Schritte()
         hinweise = {"unterlagen_durchsuchen": "🔎 Durchsuche die Unterlagen …", "fristen_anzeigen": "📅 Schaue in die Fristen …",
                     "module_auflisten": "📚 Liste die Module …"}
         nummer, start, suchen = schlange().anstellen(), time.time(), []
@@ -181,8 +189,12 @@ if frage:
                 status.caption(f"⏳ Gerade fragen viele gleichzeitig. Du bist Nr. {stelle} in der Warteschlange …")
                 time.sleep(1)
             status.caption("🛡️ Prüfe die Frage …")
+            graphfeld.graphviz_chart(dot(graph, schritte))
             for art, inhalt in fragen_live(graph, frage, st.session_state["thread"]):
-                if art == "werkzeug":  # Zwischentext vor einer Suche verwerfen, nur die Endantwort bleibt stehen
+                if art in ("schritt", "schritt_fertig"):  # Live-Diagramm: laufender Knoten orange, fertige grün
+                    (schritte.start if art == "schritt" else schritte.ende)(inhalt)
+                    graphfeld.graphviz_chart(dot(graph, schritte))
+                elif art == "werkzeug":  # Zwischentext vor einer Suche verwerfen, nur die Endantwort bleibt stehen
                     suchen.append(inhalt)
                     status.caption(hinweise.get(inhalt, "Arbeite …"))
                     text = ""
@@ -210,13 +222,15 @@ if frage:
         betrieb().frage_erledigt(st.session_state["besucher"], start)
         status.empty()
         denkfeld.empty()
+        graphfeld.empty()
         feld.markdown(r["antwort"])
         n_suche = sum(1 for s in suchen if s == "unterlagen_durchsuchen")
-        schritte = ["🛡️ abgelehnt" if r.get("abgelehnt") else "🛡️ geprüft"]
-        schritte += [f"🔎 {n_suche} {'Suche' if n_suche == 1 else 'Suchen'}"] if n_suche else []
-        schritte += ["📅 Fristen"] if "fristen_anzeigen" in suchen else []
-        schritte += [] if r.get("abgelehnt") else ["🧠 Antwort mit Reasoning"]
+        ablauf = ["🛡️ abgelehnt" if r.get("abgelehnt") else "🛡️ geprüft"]
+        ablauf += [f"🔎 {n_suche} {'Suche' if n_suche == 1 else 'Suchen'}"] if n_suche else []
+        ablauf += ["📅 Fristen"] if "fristen_anzeigen" in suchen else []
+        ablauf += [] if r.get("abgelehnt") else ["🧠 Antwort mit Reasoning"]
         eintrag = {"rolle": "assistant", "text": r["antwort"], "quellen": r["quellen"], "frage": frage, "id": str(uuid.uuid4()),
-                   "gedanken": gedanken, "ablauf": " → ".join(schritte), "sekunden": time.time() - start}
+                   "gedanken": gedanken, "ablauf": " → ".join(ablauf), "sekunden": time.time() - start,
+                   "graph": dot(graph, schritte, fertig=True) if schritte.folge else "", "schritte": schritte.zeile()}
         zeige_antwort(eintrag)
     st.session_state["verlauf"].append(eintrag)
