@@ -22,11 +22,11 @@ Team: Almidin Bangoji, Robin Meier, Jan Steiner, Andrej Mauron, Flavio Sibilia
 flowchart LR
     F["Frage"] --> P{"pruefen<br/>Studienbezug?"}
     P -- nein --> A1["freundliche Absage"]
-    P -- ja --> AG["agent<br/>Sprachmodell"]
+    P -- ja --> AG["agent<br/>schnelles Modell wählt Werkzeuge"]
     AG -- "braucht Infos" --> W["werkzeuge<br/>Unterlagen durchsuchen · Fristen · Module"]
-    W --> AG
-    AG -- "fertig" --> A2["Antwort mit Quelle"]
-    AG -. "fertig, mit Reasoning" .-> D["antworten<br/>Modell denkt nach"] -.-> A2
+    W --> D["antworten<br/>Modell denkt nach (Reasoning)"]
+    AG -- "keine Suche nötig" --> D
+    D --> A2["Antwort mit Quelle"]
     U[("Kursunterlagen<br/>Folien, Semesterprogramme,<br/>Moodle, Teams")] -.->|Hybrid-Suche| W
 ```
 
@@ -37,23 +37,26 @@ flowchart LR
 | Modell | Swiss AI Research Platform: im Chat GLM-5.3 Flash, Antwort immer mit maximalem Reasoning; per Befehl auch DeepSeek und Apertus |
 | Tools & MCP | `unterlagen_durchsuchen`, `fristen_anzeigen`, `module_auflisten` (Function Calling) auf einem eigenen MCP-Server; der Agent ist MCP-Client und holt die Werkzeuge über das Protokoll |
 | Wissen & Memory | Kursunterlagen in Abschnitte zerlegt, Hybrid-Suche (BM25 + Embeddings, Reciprocal Rank Fusion), Gesprächsgedächtnis pro Chat |
-| Orchestrierung | LangGraph: Prüfung → Agent ⇄ Werkzeuge → Antwort mit Reasoning; höchstens drei Suchrunden. Im Chat sieht man den Graphen live: laufender Schritt orange, durchlaufene grün mit Dauer (Details › Ablauf, [ablauf.py](studienassistent/ablauf.py)) |
-| Interface | Chat im Browser (Streamlit): Fundstellen als Karten, Warteschlange und Auslastung des API-Schlüssels |
+| Orchestrierung | LangGraph: Prüfung → Agent → Werkzeuge → Antwort mit Reasoning. Braucht der Agent mehrere Suchen, laufen sie parallel im selben Schritt; danach schreibt das Denkmodell direkt die Antwort, ohne Wegwerf-Entwurf. Ohne Reasoning (Befehlszeile) geht es von den Werkzeugen zurück zum Agenten, höchstens drei Suchrunden. Im Chat sieht man den Graphen live: laufender Schritt orange, durchlaufene grün mit Dauer (Details › Ablauf, [ablauf.py](studienassistent/ablauf.py)) |
+| Interface | Chat im Browser (Streamlit): schlichte Startseite mit Beispielfragen; die Gedanken des Modells erscheinen live, die Antwort wird gestreamt. Pro Antwort ein Feld «Details» mit den Reitern Quellen (Fundstellen als Karten), Gedanken und Ablauf, dazu 👍/👎. Seitenleiste: Neues Gespräch, wer online ist, Auslastung des API-Schlüssels, Warteschlange und Statistik |
 | Testing & Evaluation | Testset mit echten Fragen und bekannten Antworten, Modellvergleich ([docs/modellwahl.md](docs/modellwahl.md)), automatische Tests ohne Netz, LangSmith-Tracing (einschalten mit `LANGSMITH_TRACING=true` und `LANGSMITH_API_KEY`) |
 
 ## Evaluation
 
 22 Testfragen aus den echten Unterlagen von sieben Modulen (Termine, Regeln, Inhalte), davon drei ohne Studienbezug,
 die abgelehnt werden sollen (`evaluation/fragen.jsonl`). GLM-5.3 Flash wie im Chat (Antwort mit maximalem
-Reasoning), 07.10.2026:
+Reasoning), 14.10.2026 (nach dem Tempo-Umbau vom 11.10.):
 
 | Kennzahl | Ziel | Ergebnis | Fragen |
 |---|---|---|---|
 | Richtige Quelle unter den ersten 5 Treffern | ≥ 90 % | 100 % | 14 |
 | Antwort enthält die erwarteten Fakten | ≥ 80 % | 100 % | 18 |
 | Richtig abgelehnt bzw. beantwortet | 100 % | 100 % | 22 |
-| Antwort nennt eine Quelle | ≥ 90 % | 100 % | 19 |
-| Antwortzeit ohne Andrang (Median, max) | < 20 s | 10 s, 24 s (91 % unter 20 s) | 22 |
+| Antwort nennt eine Quelle | ≥ 90 % | 95 %¹ | 19 |
+| Antwortzeit ohne Andrang (Median, max) | < 20 s | 6 s, 18 s (100 % unter 20 s) | 22 |
+
+¹ Die eine Antwort ohne Quelle ist die Begrüssung «Hallo, was kannst du alles?», dort gibt es nichts zu belegen.
+Am 07.10., vor dem Tempo-Umbau, lag die Antwortzeit ohne Andrang noch bei 10 s (Median) und 24 s (max).
 
 Vergleich mit GLM-5.3 und DeepSeek, Begründung nach den SW4-Kriterien und was wir dabei über das Ratenlimit gelernt
 haben: [docs/modellwahl.md](docs/modellwahl.md).

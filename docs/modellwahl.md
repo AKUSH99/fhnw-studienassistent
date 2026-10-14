@@ -11,7 +11,8 @@ das Reasoning ändern sich. Gemessen auf dem Thin Client am 07.10.2026 mit `pyth
 
 | Modell (Swiss AI Platform) | Reasoning | Fakten richtig | Ablehnung richtig | Quelle genannt | Antwortzeit Median (max) | ohne Wartezeit Ratenlimit | 429-Ablehnungen |
 |---|---|---|---|---|---|---|---|
-| **GLM-5.3 Flash** (im Chat) | für die Antwort | **100 %** | **100 %** | **100 %** | 31 s (61 s) | **10 s (24 s), 91 % unter 20 s** | 0 |
+| **GLM-5.3 Flash** (im Chat, 14.10., nach Tempo-Umbau) | für die Antwort | **100 %** | **100 %** | 95 %³ | 21 s (56 s) | **6 s (18 s), 100 % unter 20 s** | 0 |
+| GLM-5.3 Flash, 07.10. | für die Antwort | 100 % | 100 % | 100 % | 31 s (61 s) | 10 s (24 s), 91 % unter 20 s | 0 |
 | GLM-5.3 Flash, erster Lauf | für die Antwort | 94 %¹ | 100 % | 95 % | 13 s (114 s) | nicht gemessen | nicht protokolliert |
 | GLM-5.3 | für die Antwort | 100 % | 100 % | 95 % | 27 s (118 s) | 24 s (118 s), 36 % unter 20 s | 4 |
 | DeepSeek V4.1 Flash | aus | 100 % | 100 % | 95 % | 58 s (131 s) | nicht gemessen | nicht protokolliert |
@@ -20,6 +21,10 @@ das Reasoning ändern sich. Gemessen auf dem Thin Client am 07.10.2026 mit `pyth
 Fakten: 18 Fragen mit bekannter Antwort; Ablehnung: alle 22; Quelle genannt: 19 beantwortete Fragen.
 ¹ Testset-Fehler: Die Antwort «24.–25. Oktober» war richtig, das Testset kannte die Schreibweise nicht (korrigiert).
 ² Die Wartezeiten nach 429 lagen damals noch im HTTP-Client des SDK und wurden nicht mitgezählt.
+³ Die eine Antwort ohne Quelle ist die Begrüssung «Hallo, was kannst du alles?».
+
+Am 11.10. wurde der Graph umgebaut: Mit Reasoning geht es nach der Suche direkt zur Antwort (kein Wegwerf-Entwurf des
+schnellen Modells mehr), und die Gedanken des Modells werden live gestreamt. Der Lauf vom 14.10. misst diesen Stand.
 
 **So lesen:** Die Evaluation stellt 22 Fragen ohne Pause hintereinander, also mehr als das Ratenlimit erlaubt.
 Darum enthält die Spalte «Antwortzeit» Wartezeit; «ohne Wartezeit Ratenlimit» ist die Zeit, die eine einzelne
@@ -28,7 +33,7 @@ Plattform lehnte dabei Anfragen ab (HTTP 429, Wartezeit 41 bis 59 s), schon bei 
 letzte Lauf mit 10 Aufrufen pro Minute und Notbremse hatte keine einzige Ablehnung.
 
 **Entscheid:** GLM-5.3 Flash. Es erreicht alle fünf Zielwerte und ist ohne Wartezeit deutlich schneller als das
-grosse GLM-5.3 (Median 10 s statt 24 s) bei gleicher Genauigkeit. DeepSeek V4.1 Flash ist ebenso genau und eine
+grosse GLM-5.3 (Median 10 s statt 24 s am 07.10., seit dem Umbau 6 s) bei gleicher Genauigkeit. DeepSeek V4.1 Flash ist ebenso genau und eine
 gute Ausweichmöglichkeit (per `--modell deepseek`). Vorsicht beim Vergleich: Die Läufe fanden unter verschiedenen
 Bedingungen statt (mit und ohne Notbremse, unterschiedliche Auslastung der Plattform), und bei 22 Fragen sind die
 Unterschiede klein. Für eine sichere Aussage sollte das Testset wachsen und alle Modelle unter gleichen
