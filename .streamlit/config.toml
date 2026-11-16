@@ -1,8 +1,11 @@
 # Aussehen und Verhalten der Chat-App (gilt, wenn die App aus dem Repository-Ordner gestartet wird)
 [theme]
-base = "dark"            # standardmässig dunkel
-primaryColor = "#3B82F6"
-baseRadius = "medium"
+base = "light"           # ruhiges, helles Design (Papier, Tinte, Textmarker-Gelb), siehe stil.py
+primaryColor = "#1c1b19"
+backgroundColor = "#f6f4ef"
+secondaryBackgroundColor = "#ece9e1"
+textColor = "#1c1b19"
+baseRadius = "small"
 
 [client]
 toolbarMode = "minimal"   # kein Entwicklermenü für Besucher
