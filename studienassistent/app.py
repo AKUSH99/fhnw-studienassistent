@@ -19,7 +19,7 @@ from studienassistent.agent import fragen_live
 from studienassistent.betrieb import Warteschlange
 from studienassistent.konfig import betrieb
 from studienassistent.stellen import als_markdown, farbe, suchbegriffe, zerlegen
-from studienassistent.stil import AVATAR_ASSISTENT, AVATAR_NUTZER, CSS, DUNKEL, MARKE_NUTZER, hero, zahlen
+from studienassistent.stil import AVATAR_ASSISTENT, AVATAR_NUTZER, CSS, DESIGNS, MARKE_NUTZER, design_css, hero, zahlen
 
 MODELL = "glm-flash"  # GLM-5.3 Flash; die Antwort entsteht immer mit maximalem Reasoning
 REPO = "https://github.com/AKUSH99/fhnw-studienassistent"
@@ -31,8 +31,8 @@ AVATARE = {"user": AVATAR_NUTZER, "assistant": AVATAR_ASSISTENT}
 
 st.set_page_config(page_title="FHNW Studienassistent", page_icon="🎓")
 st.markdown(CSS, unsafe_allow_html=True)
-if getattr(getattr(st.context, "theme", None), "type", None) == "dark":
-    st.markdown(DUNKEL, unsafe_allow_html=True)
+st.session_state.setdefault("design", "auto")  # Hell / Auto (Gerät) / Dunkel, umschaltbar in der Seitenleiste
+st.markdown(design_css(st.session_state.get("design") or "auto") or "<span></span>", unsafe_allow_html=True)
 
 
 def anmelden() -> None:
@@ -163,6 +163,8 @@ with st.sidebar:
         st.session_state.pop("verlauf", None)
         st.rerun()
     auslastung()
+    st.segmented_control("Darstellung", list(DESIGNS), format_func=DESIGNS.get, key="design",
+                         selection_mode="single", label_visibility="collapsed")
     st.caption(f"GLM-5.3 Flash · Swiss AI Research Platform · [GitHub]({REPO})  \n"
                "Antworten können Fehler enthalten. Verbindlich sind Moodle und die Dozierenden.")
 
