@@ -4,6 +4,7 @@ from __future__ import annotations
 from langchain_core.tools import tool
 
 from .fristen import Fristen
+from .sicherheit import RAHMEN, bereinigen
 from .suche import Suche
 
 
@@ -15,7 +16,9 @@ def erstelle_werkzeuge(suche: Suche, fristen: Fristen) -> list:
         treffer = suche.suchen(frage, k=8, modul=modul or None)
         if not treffer:
             return "Keine passende Stelle in den Unterlagen gefunden."
-        return "\n\n".join(f"[{i}] {a.quelle()}\n{a.text[:700]}" for i, (a, _) in enumerate(treffer, 1))
+        # SW9 Context Admission: Treffer als Daten eingerahmt, Sätze an eine KI entfernt, bevor sie in den Kontext kommen
+        return RAHMEN + "\n\n" + "\n\n".join(f"[{i}] {a.quelle()}\n{bereinigen(a.text[:700])}"
+                                              for i, (a, _) in enumerate(treffer, 1))
 
     @tool
     def fristen_anzeigen(ab: str = "", bis: str = "", modul: str = "") -> str:

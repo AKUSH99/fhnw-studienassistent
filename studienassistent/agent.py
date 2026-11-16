@@ -6,26 +6,30 @@
               └──(nicht erlaubt)──▶ END
 
 - pruefen: Guardrail – Manipulationsversuche, Themen ohne Studienbezug und «schreib meine Abgabe» werden abgelehnt.
+  Zuerst deterministische Regeln (sicherheit.py), dann das Modell. Fail closed: Kann die Prüfung nicht entscheiden
+  (Fehler, Zeitlimit), wird abgelehnt statt durchgelassen (SW9, OWASP).
 - agent: das Sprachmodell mit drei Werkzeugen (Unterlagen durchsuchen, Fristen, Module); es entscheidet selbst, welches
   Werkzeug es braucht, und kann mehrmals suchen.
 - werkzeuge: führt die Aufrufe aus und gibt die Treffer mit Quellen zurück.
 - antworten: nur mit Reasoning. Prüfen und Suchen erledigt das schnelle Modell; erst die Antwort schreibt das denkende
   Modell aus den gefundenen Stellen. So denkt es einmal statt in jeder Suchrunde.
 Nach MAX_SUCHRUNDEN Suchrunden muss der Agent mit dem antworten, was er gefunden hat.
-Gedächtnis: Der Checkpointer speichert den Gesprächsverlauf pro `thread_id`, so funktionieren Rückfragen.
+Gedächtnis: Der Checkpointer speichert den Gesprächsverlauf pro `thread_id`, so funktionieren Rückfragen. Ans Modell
+geht nur der jüngste Teil (Trimming, SW8): der State bleibt vollständig, lange Gespräche werden aber nicht langsamer.
 """
 from __future__ import annotations
 
 import datetime as dt
 
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, SystemMessage
+from langchain_core.messages.utils import count_tokens_approximately, trim_messages
 from langgraph.errors import GraphRecursionError
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 from pydantic import BaseModel, Field
 
-from . import prompts
+from . import prompts, sicherheit
 from .fristen import Fristen
 from .suche import Suche
 from .werkzeuge import erstelle_werkzeuge
@@ -33,6 +37,9 @@ from .werkzeuge import erstelle_werkzeuge
 MAX_SUCHRUNDEN = 3
 # pruefen + je Suchrunde agent und werkzeuge + letzter agent + antworten, mit Reserve
 REKURSIONSGRENZE = 2 * MAX_SUCHRUNDEN + 6
+# Höchstens so viele Tokens Gesprächsverlauf gehen ans Modell (ohne System-Prompt). Eine Frage mit drei Suchrunden
+# braucht etwa 5000; der Rest bleibt für frühere Fragen, damit Rückfragen funktionieren.
+VERLAUF_TOKENS = 16000
 WOCHENTAGE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 
 
@@ -43,6 +50,18 @@ class Pruefung(BaseModel):
 
 class Zustand(MessagesState):
     erlaubt: bool
+
+
+def gekuerzt(nachrichten: list) -> list:
+    """Der jüngste Teil des Verlaufs für das Modell (SW8 Trimming): beginnt bei einer Frage, Werkzeugaufrufe bleiben mit
+    ihren Ergebnissen zusammen. Die aktuelle Frage mit ihren Suchergebnissen bleibt immer vollständig."""
+    letzte_frage = max((i for i, m in enumerate(nachrichten) if isinstance(m, HumanMessage)), default=0)
+    aktuell, frueher = nachrichten[letzte_frage:], nachrichten[:letzte_frage]
+    rest = VERLAUF_TOKENS - count_tokens_approximately(aktuell)
+    if rest <= 0 or not frueher:
+        return aktuell
+    return trim_messages(frueher, max_tokens=rest, token_counter=count_tokens_approximately, strategy="last",
+                         start_on="human", end_on=("ai", "tool"), allow_partial=False) + aktuell
 
 
 def baue_agent(modell, suche: Suche, fristen: Fristen, heute: dt.date | None = None, gedaechtnis=None, denkmodell=None,
@@ -59,14 +78,20 @@ def baue_agent(modell, suche: Suche, fristen: Fristen, heute: dt.date | None = N
         return SystemMessage(prompts.SYSTEM.format(heute=tag.isoformat(), wochentag=WOCHENTAGE[tag.weekday()],
                                                    module=", ".join(suche.module())))
 
+    def ablehnen(grund: str) -> dict:
+        return {"erlaubt": False, "messages": [AIMessage(prompts.ABLEHNUNG.format(grund=grund))]}
+
     def pruefen(zustand: Zustand) -> dict:
+        frage = zustand["messages"][-1]
+        if grund := sicherheit.vorpruefung(str(frage.content)):  # deterministisch, vor jedem Modell
+            return ablehnen(grund)
         try:
-            ergebnis = pruefer.invoke([SystemMessage(prompts.PRUEFEN), zustand["messages"][-1]])
-        except Exception:  # noqa: BLE001 – fällt die Prüfung aus, entscheidet der Agent mit seinen eigenen Regeln
-            return {"erlaubt": True}
+            ergebnis = pruefer.invoke([SystemMessage(prompts.PRUEFEN), frage])
+        except Exception:  # noqa: BLE001 – fail closed: ohne Entscheid keine Antwort (SW9)
+            return {"erlaubt": False, "messages": [AIMessage(prompts.PRUEFUNG_AUSGEFALLEN)]}
         if ergebnis.erlaubt:
             return {"erlaubt": True}
-        return {"erlaubt": False, "messages": [AIMessage(prompts.ABLEHNUNG.format(grund=ergebnis.grund))]}
+        return ablehnen(ergebnis.grund)
 
     def suchrunden(zustand: Zustand) -> int:
         nachrichten = zustand["messages"]
@@ -77,8 +102,8 @@ def baue_agent(modell, suche: Suche, fristen: Fristen, heute: dt.date | None = N
         if suchrunden(zustand) >= MAX_SUCHRUNDEN:  # genug gesucht: ohne Werkzeuge antworten
             if denkmodell is not None:
                 return {"messages": [AIMessage("")]}  # Platzhalter, die Antwort schreibt gleich das Denkmodell
-            return {"messages": [modell.invoke([system()] + zustand["messages"] + [SystemMessage(prompts.JETZT_ANTWORTEN)])]}
-        return {"messages": [mit_werkzeugen.invoke([system()] + zustand["messages"])]}
+            return {"messages": [modell.invoke([system()] + gekuerzt(zustand["messages"]) + [SystemMessage(prompts.JETZT_ANTWORTEN)])]}
+        return {"messages": [mit_werkzeugen.invoke([system()] + gekuerzt(zustand["messages"]))]}
 
     def antworten(zustand: Zustand) -> dict:
         # Kommt es direkt von der Suche, ist die letzte Nachricht das Suchergebnis und bleibt. Hat das schnelle Modell
@@ -86,7 +111,7 @@ def baue_agent(modell, suche: Suche, fristen: Fristen, heute: dt.date | None = N
         letzte = zustand["messages"][-1]
         ist_entwurf = isinstance(letzte, AIMessage) and not getattr(letzte, "tool_calls", None)
         verlauf = zustand["messages"][:-1] if ist_entwurf else zustand["messages"]
-        antwort = denkmodell.invoke([system()] + verlauf + [SystemMessage(prompts.JETZT_ANTWORTEN)])
+        antwort = denkmodell.invoke([system()] + gekuerzt(verlauf) + [SystemMessage(prompts.JETZT_ANTWORTEN)])
         return {"messages": ([RemoveMessage(id=letzte.id)] if ist_entwurf else []) + [antwort]}
 
     def nach_agent(zustand: Zustand) -> str:
