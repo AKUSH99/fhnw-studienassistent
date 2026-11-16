@@ -19,7 +19,7 @@ from studienassistent.agent import fragen_live
 from studienassistent.betrieb import Warteschlange
 from studienassistent.konfig import betrieb
 from studienassistent.stellen import als_markdown, farbe, suchbegriffe, zerlegen
-from studienassistent.stil import AVATAR_ASSISTENT, AVATAR_NUTZER, CSS, MARKE_NUTZER, hero, zahlen
+from studienassistent.stil import AVATAR_ASSISTENT, AVATAR_NUTZER, CSS, DUNKEL, MARKE_NUTZER, hero, zahlen
 
 MODELL = "glm-flash"  # GLM-5.3 Flash; die Antwort entsteht immer mit maximalem Reasoning
 REPO = "https://github.com/AKUSH99/fhnw-studienassistent"
@@ -31,6 +31,8 @@ AVATARE = {"user": AVATAR_NUTZER, "assistant": AVATAR_ASSISTENT}
 
 st.set_page_config(page_title="FHNW Studienassistent", page_icon="🎓")
 st.markdown(CSS, unsafe_allow_html=True)
+if getattr(getattr(st.context, "theme", None), "type", None) == "dark":
+    st.markdown(DUNKEL, unsafe_allow_html=True)
 
 
 def anmelden() -> None:

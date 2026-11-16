@@ -1,11 +1,19 @@
 # Aussehen und Verhalten der Chat-App (gilt, wenn die App aus dem Repository-Ordner gestartet wird)
+# Hell und dunkel: Streamlit folgt der Systemeinstellung, umschaltbar im Menü ⋮ → Settings. Feinschliff in stil.py.
 [theme]
-base = "light"           # ruhiges, helles Design (Papier, Tinte, Textmarker-Gelb), siehe stil.py
+baseRadius = "small"
+
+[theme.light]
 primaryColor = "#1c1b19"
 backgroundColor = "#f6f4ef"
 secondaryBackgroundColor = "#ece9e1"
 textColor = "#1c1b19"
-baseRadius = "small"
+
+[theme.dark]
+primaryColor = "#ffd84a"
+backgroundColor = "#151513"
+secondaryBackgroundColor = "#1f1e1b"
+textColor = "#ece8df"
 
 [client]
 toolbarMode = "minimal"   # kein Entwicklermenü für Besucher

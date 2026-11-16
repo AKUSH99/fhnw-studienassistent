@@ -19,6 +19,14 @@ CSS = """
   --sa-leise: #6b6860;
   --sa-linie: #dedad0;
   --sa-gelb: #ffe45c;
+  --sa-text2: #3d3b36;
+  --sa-blase: #ebe7dc;
+  --sa-rand-eingabe: #cfcabd;
+  --sa-leiste: #efece4;
+  --sa-auf-tinte: #ffffff;
+  --sa-knopf-hover: #000000;
+  --sa-markierung: rgba(255,228,92,0.7);
+  --sa-hover-zeile: rgba(255,228,92,0.25);
 }
 
 html, body, [class*="st-"], .stMarkdown, .stChatInput textarea, button {
@@ -37,7 +45,7 @@ html, body, [class*="st-"], .stMarkdown, .stChatInput textarea, button {
   letter-spacing: -0.015em; line-height: 1.08; color: var(--sa-tinte); margin: 0.35rem 0 0.9rem; padding: 0;
 }
 .sa-titel mark { background: linear-gradient(transparent 58%, var(--sa-gelb) 58%); color: inherit; padding: 0 0.05em; }
-.sa-text { font-size: 1.05rem; line-height: 1.6; color: #3d3b36; max-width: 590px; margin: 0; }
+.sa-text { font-size: 1.05rem; line-height: 1.6; color: var(--sa-text2); max-width: 590px; margin: 0; }
 .sa-module { font-size: 0.85rem; color: var(--sa-leise); margin-top: 0.9rem; line-height: 1.6; }
 .sa-abschnitt { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--sa-leise); margin: 0.2rem 0 0.4rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--sa-linie); }
@@ -51,28 +59,28 @@ html, body, [class*="st-"], .stMarkdown, .stChatInput textarea, button {
 .st-key-beispiele [data-testid="stButton"] button > div { justify-content: flex-start; gap: 0.7rem; width: 100%; }
 .st-key-beispiele [data-testid="stButton"] button p { font-size: 0.98rem; white-space: normal; text-align: left; }
 .st-key-beispiele [data-testid="stButton"] button [data-testid="stIconMaterial"] { color: var(--sa-leise); font-size: 1.15rem; }
-.st-key-beispiele [data-testid="stButton"] button:hover { background: rgba(255,228,92,0.25); color: var(--sa-tinte); }
+.st-key-beispiele [data-testid="stButton"] button:hover { background: var(--sa-hover-zeile); color: var(--sa-tinte); }
 .st-key-beispiele [data-testid="stButton"] button:hover p { text-decoration: underline; text-underline-offset: 3px; }
 
 /* Chat */
 [data-testid="stChatMessage"] { background: transparent; padding: 0.4rem 0; gap: 0.8rem; }
 [data-testid="stElementContainer"]:has(.sa-du) { display: none; }  /* unsichtbare Marke der Nutzer-Nachricht */
 [data-testid="stChatMessage"]:has(.sa-du) {
-  width: fit-content; max-width: 75%; margin: 0.6rem 0 0.6rem auto; padding: 0.55rem 0.95rem;
-  background: #ebe7dc; border-radius: 14px;
+  width: fit-content; max-width: 75%; margin: 0.6rem 0 0.6rem auto; padding: 0.4rem 0.95rem 0.7rem; align-items: center;
+  background: var(--sa-blase); border-radius: 14px;
 }
 [data-testid="stChatMessage"]:has(.sa-du) p { margin: 0; }
 [data-testid="stChatMessage"]:has(.sa-du) [data-testid="stVerticalBlock"] { gap: 0; }
 [data-testid="stChatMessage"]:has(.sa-du) [data-testid="stChatMessageContent"] { margin: 0; padding: 0; min-height: 0; }
 [data-testid="stChatMessage"]:has(.sa-du) [data-testid="stChatMessageAvatarCustom"] { display: none; }
 [data-testid="stChatMessageAvatarCustom"] {
-  width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--sa-tinte) !important; color: #fff !important;
+  width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--sa-tinte) !important; color: var(--sa-auf-tinte) !important;
 }
 [data-testid="stChatMessageAvatarCustom"] [data-testid="stIconMaterial"], [data-testid="stChatMessageAvatarCustom"] span {
-  color: #fff !important; fill: #fff !important;
+  color: var(--sa-auf-tinte) !important; fill: var(--sa-auf-tinte) !important;
 }
 [data-testid="stChatMessageContent"] { font-size: 1rem; line-height: 1.65; color: var(--sa-tinte); }
-[data-testid="stChatMessageContent"] strong { font-weight: 600; background: linear-gradient(transparent 62%, rgba(255,228,92,0.7) 62%); }
+[data-testid="stChatMessageContent"] strong { font-weight: 600; background: linear-gradient(transparent 62%, var(--sa-markierung) 62%); }
 [data-testid="stChatMessageContent"] a { color: var(--sa-tinte); text-decoration: underline; text-underline-offset: 2px; }
 [data-testid="stChatMessageContent"] [data-testid="stExpander"] details {
   border: 1px solid var(--sa-linie); border-radius: 8px; background: var(--sa-flaeche);
@@ -82,18 +90,18 @@ html, body, [class*="st-"], .stMarkdown, .stChatInput textarea, button {
 /* Eingabe */
 [data-testid="stBottom"] > div, [data-testid="stBottomBlockContainer"] { background: var(--sa-papier) !important; }
 [data-testid="stChatInput"] {
-  background: var(--sa-flaeche) !important; border: 1px solid #cfcabd !important; border-radius: 12px !important;
+  background: var(--sa-flaeche) !important; border: 1px solid var(--sa-rand-eingabe) !important; border-radius: 12px !important;
   box-shadow: 0 1px 2px rgba(28,27,25,0.06);
 }
 [data-testid="stChatInput"]:focus-within { border-color: var(--sa-tinte) !important; }
-[data-testid="stChatInputSubmitButton"] { background: var(--sa-tinte) !important; color: #fff !important; border-radius: 8px !important; }
+[data-testid="stChatInputSubmitButton"] { background: var(--sa-tinte) !important; color: var(--sa-auf-tinte) !important; border-radius: 8px !important; }
 
 /* Seitenleiste */
-[data-testid="stSidebar"] { background: #efece4; border-right: 1px solid var(--sa-linie); }
+[data-testid="stSidebar"] { background: var(--sa-leiste); border-right: 1px solid var(--sa-linie); }
 [data-testid="stSidebar"] [data-testid="stButton"] button {
-  background: var(--sa-tinte); color: #fff; border: none; border-radius: 8px; font-weight: 500;
+  background: var(--sa-tinte); color: var(--sa-auf-tinte); border: none; border-radius: 8px; font-weight: 500;
 }
-[data-testid="stSidebar"] [data-testid="stButton"] button:hover { background: #000; color: var(--sa-gelb); }
+[data-testid="stSidebar"] [data-testid="stButton"] button:hover { background: var(--sa-knopf-hover); color: var(--sa-gelb); }
 .sa-zahlen { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 1.1rem 0 0.8rem;
   border-top: 1px solid var(--sa-linie); border-bottom: 1px solid var(--sa-linie); }
 .sa-zahl { padding: 0.7rem 0.2rem; }
@@ -108,6 +116,31 @@ html, body, [class*="st-"], .stMarkdown, .stChatInput textarea, button {
   [data-testid="stMainBlockContainer"] { padding-top: 2rem; }
   [data-testid="stChatMessage"]:has(.sa-du) [data-testid="stChatMessageContent"] { max-width: 88%; }
 }
+</style>
+"""
+
+# Dunkles Design: gleiche Struktur, andere Farben. Aktiv, wenn Streamlit im Dark Mode läuft (Systemeinstellung oder
+# Menü ⋮ → Settings → Theme), siehe [theme.dark] in .streamlit/config.toml.
+DUNKEL = """
+<style>
+:root {
+  --sa-papier: #151513;
+  --sa-flaeche: #1d1c1a;
+  --sa-tinte: #ece8df;
+  --sa-leise: #9b978d;
+  --sa-linie: #34322d;
+  --sa-gelb: #ffd84a;
+  --sa-text2: #cfcac0;
+  --sa-blase: #2a2925;
+  --sa-rand-eingabe: #403d37;
+  --sa-leiste: #1a1917;
+  --sa-auf-tinte: #151513;
+  --sa-knopf-hover: #ffffff;
+  --sa-markierung: rgba(255,216,74,0.32);
+  --sa-hover-zeile: rgba(255,216,74,0.10);
+}
+.sa-titel mark { background: linear-gradient(transparent 60%, rgba(255,216,74,0.45) 60%); }
+[data-testid="stSidebar"] [data-testid="stButton"] button:hover { color: #151513; }
 </style>
 """
 
