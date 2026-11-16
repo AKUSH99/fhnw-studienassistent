@@ -65,13 +65,15 @@ html, body, [class*="st-"], .stMarkdown, .stChatInput textarea, button {
 /* Chat */
 [data-testid="stChatMessage"] { background: transparent; padding: 0.4rem 0; gap: 0.8rem; }
 [data-testid="stElementContainer"]:has(.sa-du) { display: none; }  /* unsichtbare Marke der Nutzer-Nachricht */
-[data-testid="stChatMessage"]:has(.sa-du) {
-  width: fit-content; max-width: 75%; margin: 0.6rem 0 0.6rem auto; padding: 0.4rem 0.95rem 0.7rem; align-items: center;
+/* Eigene Frage: rechtsbündig, die Blase sitzt direkt auf dem Text (unabhängig von Streamlits Innenabständen) */
+[data-testid="stChatMessage"]:has(.sa-du) { justify-content: flex-end; padding: 0.5rem 0; }
+[data-testid="stChatMessage"]:has(.sa-du) [data-testid="stMarkdownContainer"] { text-align: right; }
+[data-testid="stChatMessage"]:has(.sa-du) [data-testid="stMarkdownContainer"] p {
+  display: inline-block; text-align: left; max-width: 75%; margin: 0; padding: 0.55rem 0.95rem; line-height: 1.5;
   background: var(--sa-blase); border-radius: 14px;
 }
-[data-testid="stChatMessage"]:has(.sa-du) p { margin: 0; }
 [data-testid="stChatMessage"]:has(.sa-du) [data-testid="stVerticalBlock"] { gap: 0; }
-[data-testid="stChatMessage"]:has(.sa-du) [data-testid="stChatMessageContent"] { margin: 0; padding: 0; min-height: 0; }
+[data-testid="stChatMessage"]:has(.sa-du) [data-testid="stChatMessageContent"] { margin: 0; padding: 0; min-height: 0; width: 100%; }
 [data-testid="stChatMessage"]:has(.sa-du) [data-testid="stChatMessageAvatarCustom"] { display: none; }
 [data-testid="stChatMessageAvatarCustom"] {
   width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--sa-tinte) !important; color: var(--sa-auf-tinte) !important;
