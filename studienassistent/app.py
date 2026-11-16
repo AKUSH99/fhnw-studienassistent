@@ -19,13 +19,20 @@ from studienassistent.agent import fragen_live
 from studienassistent.betrieb import Warteschlange
 from studienassistent.konfig import betrieb
 from studienassistent.stellen import als_markdown, farbe, suchbegriffe, zerlegen
+from studienassistent.stil import AVATAR_ASSISTENT, AVATAR_NUTZER, CSS, DESIGNS, MARKE_NUTZER, design_css, hero, zahlen
 
 MODELL = "glm-flash"  # GLM-5.3 Flash; die Antwort entsteht immer mit maximalem Reasoning
 REPO = "https://github.com/AKUSH99/fhnw-studienassistent"
-BEISPIELE = ["Was ist diese Woche fällig?", "Wie wird die Gruppenarbeit in GenAI bewertet?",
-             "Wie viele Folien darf das Pitch Deck in Entrepreneurship haben?", "Wann ist die Marketing-Präsentation?"]
+BEISPIELE = [(":material/event:", "Was ist diese Woche fällig?"),
+             (":material/groups:", "Wie wird die Gruppenarbeit in GenAI bewertet?"),
+             (":material/slideshow:", "Wie viele Folien darf das Pitch Deck in Entrepreneurship haben?"),
+             (":material/campaign:", "Wann ist die Marketing-Präsentation?")]
+AVATARE = {"user": AVATAR_NUTZER, "assistant": AVATAR_ASSISTENT}
 
 st.set_page_config(page_title="FHNW Studienassistent", page_icon="🎓")
+st.markdown(CSS, unsafe_allow_html=True)
+st.session_state.setdefault("design", "auto")  # Hell / Auto (Gerät) / Dunkel, umschaltbar in der Seitenleiste
+st.markdown(design_css(st.session_state.get("design") or "auto") or "<span></span>", unsafe_allow_html=True)
 
 
 def anmelden() -> None:
@@ -39,8 +46,7 @@ def anmelden() -> None:
         if hmac.compare_digest(zugang.encode(), passwort.encode()):
             st.session_state["angemeldet"] = True
             return
-    st.title("🎓 FHNW Studienassistent")
-    st.caption("Fragen zu Prüfungen, Abgaben und Fristen im BAI-Herbstsemester 2026, beantwortet aus den Kursunterlagen.")
+    st.markdown(hero([]), unsafe_allow_html=True)
     with st.form("anmelden"):
         eingabe = st.text_input("Passwort", type="password", help="Das Passwort bekommst du von deinem Team.")
         if st.form_submit_button("Los geht's", type="primary"):
@@ -136,7 +142,7 @@ def auslastung() -> None:
     b = betrieb()
     b.lebenszeichen(st.session_state["besucher"])
     lage, (in_arbeit, wartend) = b.lage(), schlange().zustand()
-    st.caption(f"👥 {lage['aktiv']} online · 🔑 {lage['aufrufe_minute']}/{lage['limit']} Aufrufe pro Minute")
+    st.markdown(zahlen(lage["aktiv"], lage["aufrufe_minute"], lage["limit"]), unsafe_allow_html=True)
     if wartend:
         st.caption(f"⏳ {wartend} in der Warteschlange")
     if lage["pause_noch"] > 0:
@@ -147,9 +153,8 @@ def auslastung() -> None:
                    f"Bewertungen 👍 {lage['daumen_hoch']} · 👎 {lage['daumen_runter']}")
 
 
-def beispiel_gewaehlt() -> None:
-    st.session_state["vorschlag"] = st.session_state["beispiel"]
-    st.session_state["beispiel"] = None
+def beispiel_gewaehlt(frage: str) -> None:
+    st.session_state["vorschlag"] = frage
 
 
 with st.sidebar:
@@ -158,27 +163,33 @@ with st.sidebar:
         st.session_state.pop("verlauf", None)
         st.rerun()
     auslastung()
+    st.segmented_control("Darstellung", list(DESIGNS), format_func=DESIGNS.get, key="design",
+                         selection_mode="single", label_visibility="collapsed")
     st.caption(f"GLM-5.3 Flash · Swiss AI Research Platform · [GitHub]({REPO})  \n"
                "Antworten können Fehler enthalten. Verbindlich sind Moodle und die Dozierenden.")
 
-st.title("🎓 Studienassistent")
 if not st.session_state["verlauf"] and "vorschlag" not in st.session_state and not st.session_state.get("eingabe"):
-    st.caption("Fragen zu Prüfungen, Abgaben und Fristen im BAI-Herbstsemester 2026, jede Antwort mit Quelle.  \n"
-               "Module: " + " · ".join(suche.module()))
-    st.pills("Beispiele", BEISPIELE, key="beispiel", on_change=beispiel_gewaehlt, label_visibility="collapsed")
+    st.markdown(hero(suche.module()), unsafe_allow_html=True)
+    st.markdown('<div class="sa-abschnitt">Häufige Fragen</div>', unsafe_allow_html=True)
+    with st.container(key="beispiele"):
+        for i, (symbol, text) in enumerate(BEISPIELE):
+            st.button(text, icon=symbol, key=f"beispiel_{i}", on_click=beispiel_gewaehlt, args=(text,), width="stretch")
 
 for eintrag in st.session_state["verlauf"]:
-    with st.chat_message(eintrag["rolle"]):
+    with st.chat_message(eintrag["rolle"], avatar=AVATARE[eintrag["rolle"]]):
+        if eintrag["rolle"] == "user":
+            st.markdown(MARKE_NUTZER, unsafe_allow_html=True)
         st.markdown(eintrag["text"])
         if eintrag["rolle"] == "assistant":
             zeige_antwort(eintrag)
 
-frage = st.chat_input("Deine Frage zum Studium …", key="eingabe") or st.session_state.pop("vorschlag", None)
+frage = st.chat_input("Frag mich etwas zu deinem Studium …", key="eingabe") or st.session_state.pop("vorschlag", None)
 if frage:
     st.session_state["verlauf"].append({"rolle": "user", "text": frage})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar=AVATAR_NUTZER):
+        st.markdown(MARKE_NUTZER, unsafe_allow_html=True)
         st.markdown(frage)
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar=AVATAR_ASSISTENT):
         graphfeld, status, denkfeld, feld, text, gedanken = st.empty(), st.empty(), st.empty(), st.empty(), "", ""
         schritte = Schritte()
         hinweise = {"unterlagen_durchsuchen": "🔎 Durchsuche die Unterlagen …", "fristen_anzeigen": "📅 Schaue in die Fristen …",

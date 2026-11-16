@@ -94,8 +94,8 @@ werden nicht gelesen; das Ratenlimit der Swiss AI Platform (≈ 15 Anfragen/Minu
 | Function Calling / Tools | drei Werkzeuge, das Modell wählt selbst |
 | Orchestrierung | LangGraph: Prüfung → Agent ⇄ Werkzeuge, bedingte Kanten |
 | RAG | Chunking mit Überlappung, Hybrid-Suche (BM25 + Qwen3-Embeddings, Reciprocal Rank Fusion), Modulfilter |
-| Memory | Gesprächsgedächtnis pro Chat (LangGraph-Checkpointer) |
-| Guardrails | Eingangsprüfung mit strukturierter Ausgabe (Pydantic, per Function Calling), Regel gegen das Schreiben von Abgaben |
+| Memory | Gesprächsgedächtnis pro Chat (LangGraph-Checkpointer), Trimming: ans Modell geht nur der jüngste Verlauf |
+| Guardrails / Safeguarding | Zwei Gates nach OWASP: Eingang (zuerst deterministische Regeln, dann Prüfung mit strukturierter Ausgabe; fail closed) und Kontext (Suchtreffer als Daten eingerahmt, Sätze an eine KI entfernt). Keine unumkehrbaren Aktionen, kein offenes Web, kein Langzeit-Gedächtnis: von der «lethal trifecta» fehlt die Kommunikation nach aussen |
 | MCP | Eigener MCP-Server mit den drei Werkzeugen; der Agent ist MCP-Client und holt Werkzeugliste und Ergebnisse über das Protokoll (`mcp_client.py`). Andere Clients (Claude Desktop, Claude Code) können denselben Server nutzen |
 | Modellwahl | Swiss AI Research Platform: im Chat GLM-5.3 Flash mit maximalem Reasoning für die Antwort; Prüfung und Suche im schnellen Modus. Per Befehl auch DeepSeek und Apertus |
 | Evaluation & Tracing | Testset mit fünf Kennzahlen inkl. Antwortzeit, Modellvergleich (`docs/modellwahl.md`), Tests ohne Netz (GitHub Actions), LangSmith-Tracing (Projekt `studienassistent`) |
@@ -116,7 +116,7 @@ verglichen. Die Tests in `tests/` laufen ohne Netz mit einem simulierten Sprachm
 | KW 43 (19.10.) | MCP-Server anbinden | umgesetzt: eigener Server (`python -m studienassistent mcp`), Agent als MCP-Client |
 | KW 44 (26.10.) | RAG, Chunking, Hybrid Retrieval | umgesetzt; Feinschliff nach Evaluation |
 | KW 46 (09.11.) | Memory festlegen | Gesprächsgedächtnis umgesetzt |
-| KW 47 (16.11.) | Safeguarding, Evaluation | Guardrail, Testset und Modellvergleich umgesetzt (alle fünf Kennzahlen erreicht, `docs/modellwahl.md`); Testset ausbauen |
+| KW 47 (16.11.) | Safeguarding, Evaluation | Guardrail, Testset und Modellvergleich umgesetzt (`docs/modellwahl.md`). Lauf vom 16.11. mit allen Änderungen (24 Fragen, `evaluation/ergebnisse/2026-11-16_glmflashdenken.json`): Quelle in Top 5, Fakten und Ablehnung je 100 %, Quelle genannt 95 %; Antwortzeit Median 15 s (Ziel < 20 s im Median erreicht; 62 % aller Antworten unter 20 s, ohne Wartezeit der Taktbremse 96 %). Zum Vergleich 14.10.: Median 21 s. Neu nach SW9: deterministische Vorprüfung, fail closed, Suchtreffer als Daten (`sicherheit.py`); nach SW8: Trimming des Verlaufs |
 | KW 48 (23.11.) | Abschlusspräsentation | Live-Demo im Chat |
 
 ## 9. Arbeitsteilung

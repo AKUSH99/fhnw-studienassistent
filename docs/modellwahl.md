@@ -11,7 +11,8 @@ das Reasoning ändern sich. Gemessen auf dem Thin Client am 07.10.2026 mit `pyth
 
 | Modell (Swiss AI Platform) | Reasoning | Fakten richtig | Ablehnung richtig | Quelle genannt | Antwortzeit Median (max) | ohne Wartezeit Ratenlimit | 429-Ablehnungen |
 |---|---|---|---|---|---|---|---|
-| **GLM-5.3 Flash** (im Chat, 14.10., nach Tempo-Umbau) | für die Antwort | **100 %** | **100 %** | 95 %³ | 21 s (56 s) | **6 s (18 s), 100 % unter 20 s** | 0 |
+| **GLM-5.3 Flash** (im Chat, 16.11., mit Safeguarding und Trimming) | für die Antwort | **100 %** | **100 %** | 95 % | 15 s (50 s) | **5 s (25 s), 96 % unter 20 s** | nicht protokolliert |
+| GLM-5.3 Flash, 14.10., nach Tempo-Umbau | für die Antwort | **100 %** | **100 %** | 95 %³ | 21 s (56 s) | **6 s (18 s), 100 % unter 20 s** | 0 |
 | GLM-5.3 Flash, 07.10. | für die Antwort | 100 % | 100 % | 100 % | 31 s (61 s) | 10 s (24 s), 91 % unter 20 s | 0 |
 | GLM-5.3 Flash, erster Lauf | für die Antwort | 94 %¹ | 100 % | 95 % | 13 s (114 s) | nicht gemessen | nicht protokolliert |
 | GLM-5.3 | für die Antwort | 100 % | 100 % | 95 % | 27 s (118 s) | 24 s (118 s), 36 % unter 20 s | 4 |
