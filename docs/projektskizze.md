@@ -116,7 +116,7 @@ verglichen. Die Tests in `tests/` laufen ohne Netz mit einem simulierten Sprachm
 | KW 43 (19.10.) | MCP-Server anbinden | umgesetzt: eigener Server (`python -m studienassistent mcp`), Agent als MCP-Client |
 | KW 44 (26.10.) | RAG, Chunking, Hybrid Retrieval | umgesetzt; Feinschliff nach Evaluation |
 | KW 46 (09.11.) | Memory festlegen | Gesprächsgedächtnis umgesetzt |
-| KW 47 (16.11.) | Safeguarding, Evaluation | Guardrail, Testset und Modellvergleich umgesetzt (`docs/modellwahl.md`). Lauf vom 14.10.: Quelle, Fakten und Ablehnung 100 %, Quelle genannt 95 %; Antwortzeit Median 21 s (Ziel < 20 s nur ohne Wartezeit der Taktbremse erreicht: Median 6 s). Neu nach SW9: deterministische Vorprüfung, fail closed, Suchtreffer als Daten (`sicherheit.py`); nach SW8: Trimming des Verlaufs |
+| KW 47 (16.11.) | Safeguarding, Evaluation | Guardrail, Testset und Modellvergleich umgesetzt (`docs/modellwahl.md`). Lauf vom 16.11. mit allen Änderungen (24 Fragen, `evaluation/ergebnisse/2026-11-16_glmflashdenken.json`): Quelle in Top 5, Fakten und Ablehnung je 100 %, Quelle genannt 95 %; Antwortzeit Median 15 s (Ziel < 20 s im Median erreicht; 62 % aller Antworten unter 20 s, ohne Wartezeit der Taktbremse 96 %). Zum Vergleich 14.10.: Median 21 s. Neu nach SW9: deterministische Vorprüfung, fail closed, Suchtreffer als Daten (`sicherheit.py`); nach SW8: Trimming des Verlaufs |
 | KW 48 (23.11.) | Abschlusspräsentation | Live-Demo im Chat |
 
 ## 9. Arbeitsteilung

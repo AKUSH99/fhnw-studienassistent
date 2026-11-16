@@ -43,19 +43,22 @@ flowchart LR
 
 ## Evaluation
 
-22 Testfragen aus den echten Unterlagen von sieben Modulen (Termine, Regeln, Inhalte), davon drei ohne Studienbezug,
-die abgelehnt werden sollen (`evaluation/fragen.jsonl`). GLM-5.3 Flash wie im Chat (Antwort mit maximalem
-Reasoning), 14.10.2026 (nach dem Tempo-Umbau vom 11.10.):
+24 Testfragen aus den echten Unterlagen von sieben Modulen (Termine, Regeln, Inhalte), davon vier ohne Studienbezug
+bzw. mit Manipulationsversuch, die abgelehnt werden sollen, und eine Frage zum Stoff («Was ist Prompt Injection?»), die
+nicht abgelehnt werden darf (`evaluation/fragen.jsonl`). GLM-5.3 Flash wie im Chat (Antwort mit maximalem Reasoning),
+16.11.2026 (mit Safeguarding nach SW9 und Trimming nach SW8):
 
 | Kennzahl | Ziel | Ergebnis | Fragen |
 |---|---|---|---|
 | Richtige Quelle unter den ersten 5 Treffern | ≥ 90 % | 100 % | 14 |
 | Antwort enthält die erwarteten Fakten | ≥ 80 % | 100 % | 18 |
-| Richtig abgelehnt bzw. beantwortet | 100 % | 100 % | 22 |
-| Antwort nennt eine Quelle | ≥ 90 % | 95 %¹ | 19 |
-| Antwortzeit ohne Andrang (Median, max) | < 20 s | 6 s, 18 s (100 % unter 20 s) | 22 |
+| Richtig abgelehnt bzw. beantwortet | 100 % | 100 % | 24 |
+| Antwort nennt eine Quelle | ≥ 90 % | 95 %¹ | 20 |
+| Antwortzeit (Median, max) | < 20 s | 15 s, 50 s (62 % unter 20 s) | 22 |
+| Antwortzeit ohne Wartezeit der Taktbremse (Median, max) | < 20 s | 5 s, 25 s (96 % unter 20 s) | 22 |
 
 ¹ Die eine Antwort ohne Quelle ist die Begrüssung «Hallo, was kannst du alles?», dort gibt es nichts zu belegen.
+Lauf vom 14.10. zum Vergleich: Median 21 s (ohne Taktbremse 6 s), sonst gleiche Werte.
 Am 07.10., vor dem Tempo-Umbau, lag die Antwortzeit ohne Andrang noch bei 10 s (Median) und 24 s (max).
 
 Vergleich mit GLM-5.3 und DeepSeek, Begründung nach den SW4-Kriterien und was wir dabei über das Ratenlimit gelernt
