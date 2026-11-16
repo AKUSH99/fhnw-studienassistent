@@ -167,6 +167,10 @@ _DUNKEL_REGELN = """
 [data-baseweb="tab"] p, [data-testid="stForm"] label { color: var(--sa-tinte) !important; }
 [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p { color: var(--sa-leise) !important; }
 [data-testid="stExpander"] details { background: var(--sa-flaeche) !important; border-color: var(--sa-linie) !important; }
+[data-testid="stExpander"] summary, [data-testid="stExpander"] details[open] > summary { background: var(--sa-flaeche) !important; }
+[data-baseweb="tab-list"], [data-baseweb="tab"] { background: transparent !important; }
+[data-baseweb="tab-highlight"] { background: var(--sa-gelb) !important; }
+[data-baseweb="tab-border"] { background: var(--sa-linie) !important; }
 [data-testid="stExpander"] summary:hover, [data-testid="stExpander"] summary:hover p { color: var(--sa-gelb) !important; }
 [data-testid="stExpander"] svg, [data-testid="stFeedback"] svg, [data-testid="stFeedback"] button { color: var(--sa-leise) !important; fill: currentColor; }
 [data-testid="stVerticalBlockBorderWrapper"] { border-color: var(--sa-linie) !important; }
